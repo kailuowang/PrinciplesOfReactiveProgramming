@@ -44,7 +44,7 @@ abstract class CircuitSimulator extends Simulator {
     input addAction invertAction
   }
 
- def connect(input: Wire, output: Wire) {
+  def connect(input: Wire, output: Wire) {
     def connectAction() {
       val inputSig = input.getSignal
       afterDelay(0) { output.setSignal(inputSig) }
@@ -101,7 +101,10 @@ abstract class CircuitSimulator extends Simulator {
   }
 
   def demux(in: Wire, c: List[Wire], out: List[Wire]) {
-    ???
+    val decoderWires = decoder(c)
+    decoderWires.zip(out).foreach {
+      case (d, o) => andGate(in, d, o)
+    }
   }
 
 }
@@ -146,7 +149,21 @@ object Circuit extends CircuitSimulator {
   }
 
   def demuxExample {
-    ???
+    val i, s3, s2, s1, s0 = new Wire
+    val out = Range(0, 16).map( i => {
+      val w = new Wire
+      probe(i.toString, w)
+      w
+    })
+
+    demux(i, List(s3, s2, s1, s0), out.reverse.toList)
+
+    s3.setSignal(false)
+    s2.setSignal(true)
+    s1.setSignal(true)
+    s0.setSignal(false)
+    i.setSignal(true)
+    run
   }
 }
 

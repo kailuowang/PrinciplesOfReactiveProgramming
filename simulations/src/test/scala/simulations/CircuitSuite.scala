@@ -72,39 +72,6 @@ class CircuitSuite extends CircuitSimulator with FunSuite {
     assert(out.getSignal === true, "or2 3")
   }
 
-  test("2-to-4 decoder") {
-    val a1, a0 = new Wire
-    val List(d3, d2, d1, d0) = decoder(List(a1, a0))
-    a1.setSignal(false)
-    a0.setSignal(false)
-    run
-
-    assert(d0.getSignal === true, "decode 1")
-    assert(List(d3, d2, d1).forall(!_.getSignal) === true, "decode 1a")
-
-    a1.setSignal(false)
-    a0.setSignal(true)
-    run
-
-    assert(d1.getSignal === true, "decode 1")
-    assert(List(d3, d2, d0).forall(!_.getSignal) === true, "decode 1a")
-
-    a1.setSignal(true)
-    a0.setSignal(false)
-    run
-
-    assert(d2.getSignal === true, "decode 1")
-    assert(List(d3, d1, d0).forall(!_.getSignal) === true, "decode 1a")
-
-    a1.setSignal(true)
-    a0.setSignal(true)
-    run
-
-    assert(d3.getSignal === true, "decode 1")
-    assert(List(d2, d1, d0).forall(!_.getSignal) === true, "decode 1a")
-
-  }
-
   test("3-to-8 decoder") {
     val a2, a1, a0 = new Wire
     val out = decoder(List(a2, a1, a0))
@@ -134,12 +101,43 @@ class CircuitSuite extends CircuitSimulator with FunSuite {
     assert(d7.getSignal === true, "3-8 decode 3")
     assert(out.filterNot(_ == d7).forall(!_.getSignal) === true, "3-8 decode 3a")
 
-
-
   }
 
-  //
-  // to complete with tests for orGate, demux, ...
-  //
+  test("1:16 demux") {
+    val i, s3, s2, s1, s0 = new Wire
+    val out = Range(0, 16).map((_) => new Wire)
 
+    demux(i, List(s3, s2, s1, s0), out.reverse.toList)
+
+    s3.setSignal(false)
+    s2.setSignal(true)
+    s1.setSignal(true)
+    s0.setSignal(false)
+    i.setSignal(true)
+    run
+
+    assert(out(6).getSignal === true)
+    assert(out.filterNot(_ == out(6)).forall(!_.getSignal) === true)
+
+    s3.setSignal(false)
+    s2.setSignal(true)
+    s1.setSignal(false)
+    s0.setSignal(true)
+    i.setSignal(true)
+    run
+
+    assert(out(5).getSignal === true)
+    assert(out.filterNot(_ == out(5)).forall(!_.getSignal) === true)
+
+    s3.setSignal(true)
+    s2.setSignal(true)
+    s1.setSignal(true)
+    s0.setSignal(false)
+    i.setSignal(true)
+    run
+
+    assert(out(14).getSignal === true)
+    assert(out.filterNot(_ == out(14)).forall(!_.getSignal) === true)
+
+  }
 }

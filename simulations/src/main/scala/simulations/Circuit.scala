@@ -44,14 +44,6 @@ abstract class CircuitSimulator extends Simulator {
     input addAction invertAction
   }
 
-  def connect(input: Wire, output: Wire) {
-    def connectAction() {
-      val inputSig = input.getSignal
-      afterDelay(0) { output.setSignal(inputSig) }
-    }
-    input addAction connectAction
-  }
-
   def andGate(a1: Wire, a2: Wire, output: Wire) {
     def andAction() {
       val a1Sig = a1.getSignal
@@ -83,10 +75,9 @@ abstract class CircuitSimulator extends Simulator {
   def decoder(in: List[Wire]): List[Wire] = {
      in match {
        case a0 :: Nil => {
-         val d0, d1 = new Wire
-         connect(a0, d1)
+         val d0 = new Wire
          inverter(a0, d0)
-         List(d1, d0)
+         List(a0, d0)
        }
        case a1 :: tail => {
          val rest = decoder(tail)

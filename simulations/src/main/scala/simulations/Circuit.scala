@@ -150,19 +150,29 @@ object Circuit extends CircuitSimulator {
 
   def demuxExample {
     val i, s3, s2, s1, s0 = new Wire
+    probe("s3", s3)
+    probe("s2", s2)
+    probe("s1", s1)
+    probe("s0", s0)
     val out = Range(0, 16).map( i => {
       val w = new Wire
-      probe(i.toString, w)
+      probe( "f" + i.toString, w)
       w
     })
 
     demux(i, List(s3, s2, s1, s0), out.reverse.toList)
+    i.setSignal(true)
 
     s3.setSignal(false)
     s2.setSignal(true)
     s1.setSignal(true)
     s0.setSignal(false)
-    i.setSignal(true)
+    run
+
+    s3.setSignal(true)
+    s2.setSignal(true)
+    s1.setSignal(true)
+    s0.setSignal(false)
     run
   }
 }
@@ -170,4 +180,5 @@ object Circuit extends CircuitSimulator {
 object CircuitMain extends App {
   // You can write tests either here, or better in the test class CircuitSuite.
   Circuit.andGateExample
+  Circuit.demuxExample
 }

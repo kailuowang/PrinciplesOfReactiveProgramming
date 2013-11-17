@@ -8,6 +8,11 @@ import org.scalatest.junit.JUnitRunner
 @RunWith(classOf[JUnitRunner])
 class EpidemySuite extends FunSuite {
 
+  test("population"){
+    val es = new EpidemySimulator
+    assert(es.persons.size == es.SimConfig.population)
+  }
+
   test("prevalence rate"){
     val prevalenceRate = 0.01
 
@@ -42,6 +47,45 @@ class EpidemySuite extends FunSuite {
       assert(chosenOne.col == col && chosenOne.row == row, "Dead person cannot move")
     }
   }
+
+  test("nobody moves into a room with dead person"){
+    val es = new EpidemySimulator
+
+    val chosenOne = es.persons.head
+    chosenOne.infected = true
+    chosenOne.sick = true
+    chosenOne.dead = true
+    chosenOne.immune = false
+
+    val originalPersons = es.personsInRoom(chosenOne.room)
+
+    val testDays = 100
+
+    while(!es.agenda.isEmpty && es.agenda.head.time < testDays){
+      es.next
+
+      assert(es.personsInRoom(chosenOne.room).forall(originalPersons.contains(_)), "all persons in the room was there at the beginning")
+    }
+  }
+
+  test("adjacentRooms") {
+    val es = new EpidemySimulator
+    assert(es.adjacentRooms(1,2).size == 4, es.adjacentRooms(1,2).toString)
+    assert(es.adjacentRooms(1,2).contains(1,3))
+    assert(es.adjacentRooms(1,2).contains(1,1))
+    assert(es.adjacentRooms(1,2).contains(0,2))
+    assert(es.adjacentRooms(1,2).contains(2,2))
+
+    assert(es.adjacentRooms(0,2).contains(7,2))
+    assert(es.adjacentRooms(7,5).contains(0,5))
+    assert(es.adjacentRooms(3,7).contains(3,0))
+    assert(es.adjacentRooms(6,0).contains(6,7))
+
+    assert(es.adjacentRooms(0,0).contains(7,0))
+    assert(es.adjacentRooms(7,7).contains(0,7))
+  }
+
+
 
   test("life cycle"){
     val es = new EpidemySimulator

@@ -43,7 +43,7 @@ class EpidemySimulator extends Simulator {
     var sick = false
     var immune = false
     var dead = false
-    var vaccinated = randomChance(5)
+
 
     // demonstrates random number generation
     var row: Int = randomBelow(roomRows)
@@ -52,8 +52,7 @@ class EpidemySimulator extends Simulator {
     nextMove
 
     def nextMove() {
-      val reduce = if (sick) 4 else 2
-      afterDelay(randomBelow(maxWait * reduce) + 1) { move() }
+      afterDelay(randomBelow(maxWait) + 1) { move() }
     }
 
     def move() {
@@ -70,7 +69,7 @@ class EpidemySimulator extends Simulator {
     }
 
     def onArrive() {
-      if(exists(room)(_.infectious) && randomChance(transmissibility) && !infected && !immune && !vaccinated) getInfected()
+      if(exists(room)(_.infected) && randomChance(transmissibility) && !infected && !immune ) getInfected()
     }
 
     def getInfected() {
@@ -83,15 +82,16 @@ class EpidemySimulator extends Simulator {
         if(!dead) {
           immune = true
           sick = false
-          infected = false
+
         }
       }
       afterDelay(recoverAt) {
-        immune = false
+        if(!dead){
+          immune = false
+          infected = false
+        }
       }
     }
-
-    def infectious : Boolean = infected || immune
 
     def room: RoomLocation = (row, col)
 

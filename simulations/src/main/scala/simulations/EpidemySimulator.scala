@@ -95,8 +95,5 @@ class EpidemySimulator extends Simulator {
 
     def randomChance(percentagePossibility: Int) : Boolean = randomBelow(101) <= percentagePossibility
 
-
-
-
   }
 }

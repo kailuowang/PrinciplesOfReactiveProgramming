@@ -17,6 +17,15 @@ import org.scalatest.junit.JUnitRunner
 @RunWith(classOf[JUnitRunner])
 class NodeScalaSuite extends FunSuite {
 
+  def testExceptionOccurred[T](f: Future[T]): Boolean =
+    try {
+      Await.result(f, 1 second)
+      false
+    } catch {
+      case TestException => true
+    }
+
+  case object TestException extends Exception
   test("A Future should always be created") {
     val always = Future.always(517)
 
@@ -33,6 +42,33 @@ class NodeScalaSuite extends FunSuite {
       case t: TimeoutException => // ok!
     }
   }
+
+
+  test("all success when all future succeed") {
+    val all = Future.all[Int](List(Future.always(1), Future.always(2), Future.always(3)))
+
+    assert(Await.result(all, 1 second) == List(1,2,3))
+  }
+
+  test("all returns a failure that returns when all future succeed") {
+    val all = Future.all[Int](List(Future.always(1), Future.always(2), Future.failed(TestException)))
+
+    assert(testExceptionOccurred(all))
+  }
+
+
+  test("any success when any future succeed") {
+    val any = Future.any[Int](List(Future.always(1), Future.delay(20 millisecond).map(u => 4)))
+
+    assert(Await.result(any, 1 second) == 1)
+  }
+
+  test("any fails when any future failed") {
+    val any = Future.any[Int](List(Future.failed(TestException), Future.delay(20 millisecond).map(u => 4)))
+
+    assert(testExceptionOccurred(any))
+  }
+
 
   test("CancellationTokenSource should allow stopping the computation") {
     val cts = CancellationTokenSource()

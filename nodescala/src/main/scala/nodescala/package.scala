@@ -16,20 +16,23 @@ package object nodescala {
 
     /** Returns a future that is always completed with `value`.
      */
-    def always[T](value: T): Future[T] = ???
+    def always[T](value: T): Future[T] = Future(value)
 
     /** Returns a future that is never completed.
      *
      *  This future may be useful when testing if timeout logic works correctly.
      */
-    def never[T]: Future[T] = ???
+    def never[T]: Future[T] = Promise[T].future
 
     /** Given a list of futures `fs`, returns the future holding the list of values of all the futures from `fs`.
      *  The returned future is completed only once all of the futures in `fs` have been completed.
      *  The values in the list are in the same order as corresponding futures `fs`.
      *  If any of the futures `fs` fails, the resulting future also fails.
      */
-    def all[T](fs: List[Future[T]]): Future[List[T]] = ???
+    def all[T](fs: List[Future[T]]): Future[List[T]] = fs.foldRight(Future.successful(List[T]())) { (f, a) =>
+      for(t <- f; l <- a) yield  t :: l
+    }
+
 
     /** Given a list of futures `fs`, returns the future holding the value of the future from `fs` that completed first.
      *  If the first completing future in `fs` fails, then the result is failed as well.
@@ -40,11 +43,17 @@ package object nodescala {
      *
      *  may return a `Future` succeeded with `1`, `2` or failed with an `Exception`.
      */
-    def any[T](fs: List[Future[T]]): Future[T] = ???
+    def any[T](fs: List[Future[T]]): Future[T] = {
+      val p = Promise[T]
+      fs.foreach(_.onComplete(p.tryComplete(_)))
+      p.future
+    }
 
     /** Returns a future with a unit value that is completed after time `t`.
      */
-    def delay(t: Duration): Future[Unit] = ???
+    def delay(t: Duration): Future[Unit] = Future {
+      Thread.sleep(t.toMillis)
+    }
 
     /** Completes this future with user input.
      */
@@ -127,12 +136,21 @@ package object nodescala {
     def cancellationToken: CancellationToken
   }
 
+
+
   /** Creates cancellation token sources.
    */
   object CancellationTokenSource {
     /** Creates a new `CancellationTokenSource`.
      */
-    def apply(): CancellationTokenSource = ???
+    def apply(): CancellationTokenSource = new CancellationTokenSource {
+      private var _isCancelled = false
+      def cancellationToken: CancellationToken = new CancellationToken {
+        def isCancelled: Boolean = _isCancelled
+      }
+
+      def unsubscribe(): Unit = _isCancelled = true
+    }
   }
 
 }

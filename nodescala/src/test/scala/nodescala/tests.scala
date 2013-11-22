@@ -102,6 +102,14 @@ class NodeScalaSuite extends FunSuite {
     assert(Await.result(p.future, 1 second) == "done")
   }
 
+  test("CancellationTokenSource should remain cancelled after unsubscriibed multiple times") {
+    val cts = CancellationTokenSource()
+    val ct = cts.cancellationToken
+    cts.unsubscribe()
+    cts.unsubscribe()
+    assert(ct.isCancelled)
+  }
+
   class DummyExchange(val request: Request) extends Exchange {
     @volatile var response = ""
     val loaded = Promise[String]()

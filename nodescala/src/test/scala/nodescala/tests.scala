@@ -50,21 +50,36 @@ class NodeScalaSuite extends FunSuite {
     assert(Await.result(all, 1 second) == List(1,2,3))
   }
 
+
   test("all returns a failure that returns when all future succeed") {
     val all = Future.all[Int](List(Future.always(1), Future.always(2), Future.failed(TestException)))
 
     assert(testExceptionOccurred(all))
   }
 
+  test("delay timeout before delay") {
+    val delay = Future.delay(100 milliseconds)
+    try {
+      Await.result(delay, 50 milliseconds)
+      assert(false)
+    } catch {
+      case t: TimeoutException => // ok!
+    }
+  }
+
+  test("delay resolves after delay") {
+    val delay = Future.delay(20 milliseconds)
+    assert(Await.result(delay, 25 milliseconds).isInstanceOf[Unit])
+  }
 
   test("any success when any future succeed") {
-    val any = Future.any[Int](List(Future.always(1), Future.delay(20 millisecond).map(u => 4)))
+    val any = Future.any[Int](List(Future.always(1), Future.delay(2 seconds).map(u => 4)))
 
-    assert(Await.result(any, 1 second) == 1)
+    assert(Await.result(any, 1 second) == 1, Await.result(any, 0 nanosecond))
   }
 
   test("any fails when any future failed") {
-    val any = Future.any[Int](List(Future.failed(TestException), Future.delay(20 millisecond).map(u => 4)))
+    val any = Future.any[Int](List(Future.failed(TestException), Future.delay(2 seconds).map(u => 4)))
 
     assert(testExceptionOccurred(any))
   }

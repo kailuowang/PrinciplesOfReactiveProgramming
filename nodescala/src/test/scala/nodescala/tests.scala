@@ -102,12 +102,35 @@ class NodeScalaSuite extends FunSuite {
     assert(Await.result(p.future, 1 second) == "done")
   }
 
-  test("CancellationTokenSource should remain cancelled after unsubscriibed multiple times") {
+  test("CancellationTokenSource should remain cancelled after unsubscribed multiple times") {
     val cts = CancellationTokenSource()
     val ct = cts.cancellationToken
     cts.unsubscribe()
     cts.unsubscribe()
     assert(ct.isCancelled)
+  }
+
+  test("Future run can be stopped") {
+    var state: Int = 0
+    val work = Future.run() { token =>
+      Future {
+        while(token.nonCancelled) {
+          state = 1
+        }
+        state = 2
+      }
+    }
+    val working  = Future.delay(50 milliseconds).map { u =>
+      state == 1
+    }
+    Future.delay(75 milliseconds) onSuccess {
+      case _ => work.unsubscribe()
+    }
+    val stopped = Future.delay(100 milliseconds) map { u =>
+      state == 2
+    }
+    assert(Await.result(working, 1 second))
+    assert(Await.result(stopped, 1 second))
   }
 
   class DummyExchange(val request: Request) extends Exchange {

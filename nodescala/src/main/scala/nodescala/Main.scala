@@ -14,7 +14,7 @@ object Main {
     // 1. instantiate the server at 8191, relative path "/test",
     //    and have the response return headers of the request
     val myServer = new NodeScala.Default(8191)
-    val myServerSubscription = myServer.start("/test")((r) => List("a").iterator)
+    val myServerSubscription = myServer.start("/test")(Controller.handle)
 
     // TO IMPLEMENT
     // 2. create a future that expects some user input `x`
@@ -29,7 +29,7 @@ object Main {
     // TO IMPLEMENT
     // 3. create a future that completes after 20 seconds
     //    and continues with a `"Server timeout!"` message
-    val timeOut: Future[String] = Future.delay(20 seconds).continue {
+    val timeOut: Future[String] = Future.delay(200000 seconds).continue {
       case _ => "Server timeout!"
     }
 

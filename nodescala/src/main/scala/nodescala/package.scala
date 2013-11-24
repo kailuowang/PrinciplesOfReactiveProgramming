@@ -1,3 +1,5 @@
+import nodescala.NodeScala.Request
+import scala.io.Source
 import scala.language.postfixOps
 import scala.util._
 import scala.util.control.NonFatal
@@ -162,6 +164,21 @@ package object nodescala {
       }
 
       def unsubscribe(): Unit = p.trySuccess(Unit)
+    }
+  }
+
+  object Controller {
+    lazy val stream = Source.fromFile("test.html").getLines.toStream
+    def handle(r: Request): Iterator[String] = {
+      try {
+        stream.iterator
+      }catch {
+        case e: Throwable => {
+          println("error!")
+          println(e)
+          List(e.toString).iterator
+        }
+      }
     }
   }
 

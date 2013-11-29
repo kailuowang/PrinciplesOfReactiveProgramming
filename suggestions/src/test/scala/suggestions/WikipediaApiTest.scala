@@ -13,6 +13,8 @@ import gui._
 
 import org.junit.runner.RunWith
 import org.scalatest.junit.JUnitRunner
+import scala.collection.mutable
+import rx.lang.scala.subjects.ReplaySubject
 
 
 @RunWith(classOf[JUnitRunner])
@@ -66,5 +68,29 @@ class WikipediaApiTest extends FunSuite {
       s => total = s
     }
     assert(total == (1 + 1 + 2 + 1 + 2 + 3), s"Sum: $total")
+  }
+
+  test("recovered should return Try[T] and terminates on Error") {
+    val subject = ReplaySubject[Int]
+    val observed = mutable.Buffer[Try[Int]]()
+    val recovered = subject.recovered
+    var completed = false
+    var errored = false
+    recovered subscribe(
+      observed += _,
+      (e) => errored = true,
+      () => completed = true
+    )
+    subject.onNext(1)
+    subject.onNext(2)
+    assert(observed.toList == List(Success(1),Success(2)))
+
+    val e = new Throwable("test")
+
+    subject.onError(e)
+    assert(observed.last == Failure(e))
+
+    assert(completed)
+    assert(!errored)
   }
 }

@@ -12,6 +12,7 @@ import rx.subscriptions.CompositeSubscription
 import rx.lang.scala.Observable
 import observablex._
 import search._
+import rx.lang.scala.Notification.{OnCompleted, OnError, OnNext}
 
 trait WikipediaApi {
 
@@ -37,7 +38,7 @@ trait WikipediaApi {
      *
      * E.g. `"erik", "erik meijer", "martin` should become `"erik", "erik_meijer", "martin"`
      */
-    def sanitized: Observable[String] = ???
+    def sanitized: Observable[String] = obs.map (_.replace(' ', '_'))
 
   }
 
@@ -48,7 +49,10 @@ trait WikipediaApi {
      *
      * E.g. `1, 2, 3, !Exception!` should become `Success(1), Success(2), Success(3), Failure(Exception), !TerminateStream!`
      */
-    def recovered: Observable[Try[T]] = ???
+    def recovered: Observable[Try[T]] = obs.materialize.map {
+      case OnNext(t) => Success(t)
+      case OnError(e) => Failure(e)
+    }
 
     /** Emits the events from the `obs` observable, until `totalSec` seconds have elapsed.
      *

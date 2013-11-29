@@ -15,6 +15,7 @@
       <sourceFolder url="file://$MODULE_DIR$/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/simulations/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/nodescala/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/suggestions/src" isTestSource="false" />
       <excludeFolder url="file://$MODULE_DIR$/nodescala/project/target" />
       <excludeFolder url="file://$MODULE_DIR$/nodescala/target" />
       <excludeFolder url="file://$MODULE_DIR$/simulations/target" />

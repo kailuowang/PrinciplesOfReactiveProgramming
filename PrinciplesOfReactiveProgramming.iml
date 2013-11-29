@@ -19,6 +19,8 @@
       <excludeFolder url="file://$MODULE_DIR$/nodescala/project/target" />
       <excludeFolder url="file://$MODULE_DIR$/nodescala/target" />
       <excludeFolder url="file://$MODULE_DIR$/simulations/target" />
+      <excludeFolder url="file://$MODULE_DIR$/suggestions/submission" />
+      <excludeFolder url="file://$MODULE_DIR$/suggestions/target" />
     </content>
     <orderEntry type="inheritedJdk" />
     <orderEntry type="sourceFolder" forTests="false" />

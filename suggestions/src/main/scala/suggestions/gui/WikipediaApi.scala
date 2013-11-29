@@ -49,9 +49,12 @@ trait WikipediaApi {
      *
      * E.g. `1, 2, 3, !Exception!` should become `Success(1), Success(2), Success(3), Failure(Exception), !TerminateStream!`
      */
-    def recovered: Observable[Try[T]] = obs.materialize.map {
-      case OnNext(t) => Success(t)
-      case OnError(e) => Failure(e)
+    def recovered: Observable[Try[T]] = Observable { observer =>
+      obs.subscribe(
+        t => observer.onNext(Success(t)),
+        e => { observer.onNext(Failure(e)); observer.onCompleted()},
+        () => observer.onCompleted()
+      )
     }
 
     /** Emits the events from the `obs` observable, until `totalSec` seconds have elapsed.
@@ -60,7 +63,8 @@ trait WikipediaApi {
      *
      * Note: uses the existing combinators on observables.
      */
-    def timedOut(totalSec: Long): Observable[T] = ???
+    def timedOut(totalSec: Long): Observable[T] =
+      Observable.interval(totalSec seconds).take(2).merge(obs).filter(!_.isInstanceOf[Long]).map(_.asInstanceOf[T])
 
 
     /** Given a stream of events `obs` and a method `requestMethod` to map a request `T` into
@@ -88,7 +92,7 @@ trait WikipediaApi {
      *
      * Observable(Success(1), Succeess(1), Succeess(1), Succeess(2), Succeess(2), Succeess(2), Succeess(3), Succeess(3), Succeess(3))
      */
-    def concatRecovered[S](requestMethod: T => Observable[S]): Observable[Try[S]] = ???
+    def concatRecovered[S](requestMethod: T => Observable[S]): Observable[Try[S]] = obs.map((t) => requestMethod(t).recovered).concat
 
   }
 

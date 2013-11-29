@@ -93,4 +93,22 @@ class WikipediaApiTest extends FunSuite {
     assert(completed)
     assert(!errored)
   }
+
+  test("recovered should return Try[T] and terminates on complete") {
+    val subject = ReplaySubject[Int]
+    val observed = mutable.Buffer[Try[Int]]()
+    val recovered = subject.recovered
+    var completed = false
+    recovered subscribe(
+      observed += _,
+      (e) => throw e,
+      () => completed = true
+    )
+    subject.onNext(1)
+    assert(observed.last == Success(1))
+
+    subject.onCompleted()
+
+    assert(completed, "didn't complete")
+  }
 }

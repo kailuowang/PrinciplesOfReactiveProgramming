@@ -55,6 +55,7 @@ trait SwingApi {
     def textValues: Observable[String] = Observable ( observer => {
         field.subscribe {
           case ValueChanged(fd) => observer.onNext(fd.text)
+          case _ =>
         }
         Subscription {}
       }
@@ -71,6 +72,7 @@ trait SwingApi {
     def clicks: Observable[Button] = Observable { observer =>
       button.subscribe {
         case ButtonClicked(btn) => observer.onNext(btn)
+        case _ =>
       }
       Subscription {}
     }

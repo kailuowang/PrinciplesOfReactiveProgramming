@@ -63,8 +63,11 @@ trait WikipediaApi {
      *
      * Note: uses the existing combinators on observables.
      */
-    def timedOut(totalSec: Long): Observable[T] =
-      Observable.interval(totalSec seconds).take(2).merge(obs).filter(!_.isInstanceOf[Long]).map(_.asInstanceOf[T])
+    def timedOut(totalSec: Long): Observable[T] =  Observable { observer =>
+      Observable.interval(totalSec seconds).first.subscribe(_ => observer.onCompleted)
+      obs.subscribe(observer)
+    }
+
 
 
     /** Given a stream of events `obs` and a method `requestMethod` to map a request `T` into

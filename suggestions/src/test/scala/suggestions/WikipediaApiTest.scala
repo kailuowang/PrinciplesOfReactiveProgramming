@@ -111,4 +111,12 @@ class WikipediaApiTest extends FunSuite {
 
     assert(completed, "didn't complete")
   }
+
+
+  test("timeout should complete on time out"){
+    val result = Observable(1, 2, 3).zip(Observable.interval(0.5 second)).timedOut(1L).toBlockingObservable.toList
+
+    assert(result == List((1, 0L)), result.toString)
+  }
+
 }

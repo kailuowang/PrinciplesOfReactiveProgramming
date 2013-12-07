@@ -12,7 +12,7 @@ import scala.concurrent.duration._
 import org.scalatest.FunSuite
 
 
-class BinaryTreeSuite(_system: ActorSystem) extends TestKit(_system) with FunSuite with ShouldMatchers with BeforeAndAfterAll with ImplicitSender 
+class BinaryTreeSuite(_system: ActorSystem) extends TestKit(_system) with FunSuite with ShouldMatchers with BeforeAndAfterAll with ImplicitSender
 {
 
   def this() = this(ActorSystem("PostponeSpec"))
@@ -81,6 +81,32 @@ class BinaryTreeSuite(_system: ActorSystem) extends TestKit(_system) with FunSui
       )
 
     verify(requester, ops, expectedReplies)
+  }
+
+  test("Simple instruction With GC"){
+    val topNode = system.actorOf(Props[BinaryTreeSet])
+
+    topNode ! GC
+    topNode ! Contains(testActor, id = 1, 1)
+    expectMsg(ContainsResult(1, false))
+
+    topNode ! GC
+
+    topNode ! Insert(testActor, id = 2, 2)
+    topNode ! Contains(testActor, id = 3, 2)
+
+    expectMsg(OperationFinished(2))
+    expectMsg(ContainsResult(3, true))
+
+    topNode ! Remove(testActor, id = 4, 1)
+
+    topNode ! GC
+
+    topNode ! Contains(testActor, id = 5, 1)
+
+    expectMsg(OperationFinished(4))
+    expectMsg(ContainsResult(5, false))
+
   }
 
   test("behave identically to built-in set (includes GC)") {

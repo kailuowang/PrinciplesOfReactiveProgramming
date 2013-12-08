@@ -10,6 +10,7 @@ import org.scalatest.matchers.ShouldMatchers
 import scala.util.Random
 import scala.concurrent.duration._
 import org.scalatest.FunSuite
+import actorbintree.BinaryTreeSet.GC
 
 
 class BinaryTreeSuite(_system: ActorSystem) extends TestKit(_system) with FunSuite with ShouldMatchers with BeforeAndAfterAll with ImplicitSender
@@ -83,29 +84,35 @@ class BinaryTreeSuite(_system: ActorSystem) extends TestKit(_system) with FunSui
     verify(requester, ops, expectedReplies)
   }
 
-  test("Simple instruction With GC"){
+
+  test("simple instructions With GC"){
     val topNode = system.actorOf(Props[BinaryTreeSet])
-
-    topNode ! GC
-    topNode ! Contains(testActor, id = 1, 1)
-    expectMsg(ContainsResult(1, false))
-
-    topNode ! GC
-
+    topNode ! Insert(testActor, id = 1, -2)
     topNode ! Insert(testActor, id = 2, 2)
-    topNode ! Contains(testActor, id = 3, 2)
+    topNode ! Insert(testActor, id = 3, -1)
+    topNode ! Insert(testActor, id = 4, -3)
+    topNode ! Insert(testActor, id = 5, 5)
+    topNode ! Insert(testActor, id = 6, 7)
+    topNode ! Insert(testActor, id = 7, 4)
+    topNode ! Remove(testActor, id = 8, 2)
 
-    expectMsg(OperationFinished(2))
-    expectMsg(ContainsResult(3, true))
 
-    topNode ! Remove(testActor, id = 4, 1)
-
+    Thread.sleep(50)
     topNode ! GC
 
-    topNode ! Contains(testActor, id = 5, 1)
+    topNode ! Contains(testActor, id = 9, -10)
+    topNode ! Contains(testActor, id = 10, 2)
 
+    expectMsg(OperationFinished(1))
+    expectMsg(OperationFinished(2))
+    expectMsg(OperationFinished(3))
     expectMsg(OperationFinished(4))
-    expectMsg(ContainsResult(5, false))
+    expectMsg(OperationFinished(5))
+    expectMsg(OperationFinished(6))
+    expectMsg(OperationFinished(7))
+    expectMsg(OperationFinished(8))
+    expectMsg(ContainsResult(9, false))
+    expectMsg(ContainsResult(10, false))
 
   }
 
@@ -148,7 +155,9 @@ class BinaryTreeSuite(_system: ActorSystem) extends TestKit(_system) with FunSui
 
     ops foreach { op =>
       topNode ! op
-      if (rnd.nextDouble() < 0.1) topNode ! GC
+      if (rnd.nextDouble() < 0.1){
+        topNode ! GC
+      }
     }
     receiveN(requester, ops, expectedReplies)
   }

@@ -138,8 +138,6 @@ class BinaryTreeNode(val elem: Int, initiallyRemoved: Boolean) extends Actor {
   /** Handles `Operation` messages and `CopyTo` requests. */
   val normal: Receive = {
     case op: Operation => {
-      context.become(performing)
-
       if(op.elem < elem && subtrees.contains(Left))
         subtrees(Left) forward op
       else if (op.elem > elem && subtrees.contains(Right))
@@ -150,18 +148,20 @@ class BinaryTreeNode(val elem: Int, initiallyRemoved: Boolean) extends Actor {
 
     case CopyTo(treeNode) => {
       checkFinish(subtrees.values.toSet, removed)
-      if(!removed) treeNode ! Insert(self, elem, elem ) //use elem as insert operation id
+
+      if(!removed)
+        treeNode ! Insert(self, elem, elem ) //use elem as insert operation id
+
       subtrees.values.foreach(_ ! CopyTo(treeNode))
     }
 
-  }
-
-  val performing: Receive = {
     case of: OperationReply => {
       context become normal
       context.parent forward of
     }
+
   }
+
 
   def insert(position: Position, newElem: Int, id: Int) {
     subtrees += position -> context.actorOf(BinaryTreeNode.props(newElem))
@@ -196,15 +196,18 @@ class BinaryTreeNode(val elem: Int, initiallyRemoved: Boolean) extends Actor {
       checkFinish(rest, insertConfirmed)
     }
 
-    case OperationFinished => checkFinish(expected, true)
+    case of: OperationFinished => checkFinish(expected, true)
+
   }
 
   def checkFinish(expected: Set[ActorRef], insertConfirmed: Boolean) = {
+
     if(expected.isEmpty && insertConfirmed) {
       context.parent ! CopyFinished
       context.stop(self)
-    }else
+    }else {
       context become copying(expected, insertConfirmed)
+    }
   }
 
 }

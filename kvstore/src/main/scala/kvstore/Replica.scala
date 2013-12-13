@@ -39,7 +39,7 @@ class Replica(val arbiter: ActorRef, persistenceProps: Props) extends Actor {
 
 
   var kv = Map.empty[String, String]
-  var expectedSeqs = Map.empty[String, Long]
+  var expectedSeq = 0L
 
   var secondaries = Map.empty[ActorRef, ActorRef]
 
@@ -66,11 +66,10 @@ class Replica(val arbiter: ActorRef, persistenceProps: Props) extends Actor {
 
   val replica: Receive = {
     case Snapshot(key, value, seq) => {
-      val expected = expectedSeq(key)
-      if(seq == expected)
+      if(seq == expectedSeq)
         update(key, value)
-      if(seq <= expected){
-        expectedSeqs += key -> Math.max(seq + 1, expected)
+      if(seq <= expectedSeq){
+        expectedSeq = Math.max(seq + 1, expectedSeq)
         sender ! SnapshotAck(key, seq)
       }
     }
@@ -85,8 +84,6 @@ class Replica(val arbiter: ActorRef, persistenceProps: Props) extends Actor {
     else
       kv -= key
   }
-
-  def expectedSeq(key: String): Long = expectedSeqs.get(key).getOrElse(0L)
 
   override def preStart() : Unit= {
     arbiter ! Join

@@ -26,7 +26,9 @@ object Replica {
   sealed trait OperationReply
   case class OperationAck(id: Long) extends OperationReply
   case class OperationFailed(id: Long) extends OperationReply
+  case class CheckPersistent(id: Long)
   case class GetResult(key: String, valueOption: Option[String], id: Long) extends OperationReply
+
 
   def props(arbiter: ActorRef, persistenceProps: Props): Props = Props(new Replica(arbiter, persistenceProps))
 }
@@ -58,14 +60,25 @@ class Replica(val arbiter: ActorRef, persistenceProps: Props) extends Actor {
   val leader: Receive = {
     case Insert(key, value, id) => {
       kv += key -> value
-      sender ! OperationAck(id)
+      persist(key, Some(value), id)
     }
     case Remove(key, id) => {
       kv -= key
-      sender ! OperationAck(id)
+      persist(key, None, id)
     }
     case Get(key, id) => {
       sender ! GetResult(key, kv.get(key), id)
+    }
+
+    case Persisted(key, id) => {
+      persistenceAcks(id)._1 ! OperationAck(id)
+      persistenceAcks -= id
+    }
+
+    case CheckPersistent(id) => {
+      persistenceAcks.get(id).foreach {
+        case (requester, p) => requester ! OperationFailed(id)
+      }
     }
   }
 
@@ -91,11 +104,11 @@ class Replica(val arbiter: ActorRef, persistenceProps: Props) extends Actor {
 
   }
 
-
   def persist( key: String, valueOption: Option[String], id: Long) {
     val p = Persist(key, valueOption, id)
     persistenceAcks += id -> (sender, p)
     persistent ! p
+    context.system.scheduler.scheduleOnce(1 second, self, CheckPersistent(id))
   }
 
   def update(key: String, valueOption: Option[String]) {

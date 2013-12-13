@@ -12,6 +12,7 @@ import akka.actor.PoisonPill
 import akka.actor.OneForOneStrategy
 import akka.actor.SupervisorStrategy
 import akka.util.Timeout
+import scala.language.postfixOps
 
 object Replica {
   sealed trait Operation {
@@ -45,6 +46,10 @@ class Replica(val arbiter: ActorRef, persistenceProps: Props) extends Actor {
 
   var replicators = Set.empty[ActorRef]
 
+  var persistent: ActorRef = context.actorOf(persistenceProps)
+
+  var persistenceAcks = Map.empty[Long, (ActorRef, Persist)] //id -> (requester, persist)
+
   def receive = {
     case JoinedPrimary   => context.become(leader)
     case JoinedSecondary => context.become(replica)
@@ -65,28 +70,51 @@ class Replica(val arbiter: ActorRef, persistenceProps: Props) extends Actor {
   }
 
   val replica: Receive = {
-    case Snapshot(key, value, seq) => {
-      if(seq == expectedSeq)
-        update(key, value)
-      if(seq <= expectedSeq){
-        expectedSeq = Math.max(seq + 1, expectedSeq)
+
+    case Snapshot(key, valueOption, seq) => {
+      if(seq == expectedSeq){
+        expectedSeq += 1
+        update(key, valueOption)
+        persist(key, valueOption, seq)
+      } else if (seq < expectedSeq)
         sender ! SnapshotAck(key, seq)
-      }
     }
+
     case Get(key, id) => {
       sender ! GetResult(key, kv.get(key), id)
     }
+
+    case Persisted(key, id) => {
+      persistenceAcks(id)._1 ! SnapshotAck(key, id)
+      persistenceAcks -= id
+    }
+
   }
 
-  def update(key: String, value: Option[String]) {
-    if(value.isDefined)
-      kv += key -> value.get
+
+  def persist( key: String, valueOption: Option[String], id: Long) {
+    val p = Persist(key, valueOption, id)
+    persistenceAcks += id -> (sender, p)
+    persistent ! p
+  }
+
+  def update(key: String, valueOption: Option[String]) {
+    if(valueOption.isDefined)
+      kv += key -> valueOption.get
     else
       kv -= key
   }
 
+  def repersist():Unit = {
+    persistenceAcks.foreach {
+      case (id, (_, p)) => persistent ! p
+    }
+  }
+
   override def preStart() : Unit= {
     arbiter ! Join
+    context.system.scheduler.schedule(0 milliseconds, 100 milliseconds)(repersist)
+
   }
 
 }

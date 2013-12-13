@@ -42,9 +42,8 @@ class Replicator(val replica: ActorRef) extends Actor {
       send(r, seq)
     }
     case SnapshotAck(key, seq) => {
-      acks.get(seq).foreach {
-        case (requester, replicate) => requester ! Replicated(key, replicate.id)
-      }
+      val (requester, r) = acks(seq)
+      requester ! Replicated(key, r.id)
       acks -= seq
     }
   }
@@ -60,7 +59,7 @@ class Replicator(val replica: ActorRef) extends Actor {
   }
 
   override def preStart():Unit = {
-    context.system.scheduler.schedule(200 milliseconds, 100 milliseconds)(resend)
+    context.system.scheduler.schedule(0 milliseconds, 100 milliseconds)(resend)
   }
 
 }

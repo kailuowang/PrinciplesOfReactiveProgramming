@@ -26,7 +26,7 @@ object Replica {
   sealed trait OperationReply
   case class OperationAck(id: Long) extends OperationReply
   case class OperationFailed(id: Long) extends OperationReply
-  case class CheckPersistent(id: Long)
+  case class CheckAck(key: String, id: Long)
   case class GetResult(key: String, valueOption: Option[String], id: Long) extends OperationReply
 
 
@@ -40,17 +40,78 @@ class Replica(val arbiter: ActorRef, persistenceProps: Props) extends Actor {
   import context.dispatcher
 
 
-
   var kv = Map.empty[String, String]
   var expectedSeq = 0L
 
-  var secondaries = Map.empty[ActorRef, ActorRef]
+  var secondaries = Map.empty[ActorRef, ActorRef]  //replica -> replicator
 
   var replicators = Set.empty[ActorRef]
 
   var persistent: ActorRef = context.actorOf(persistenceProps)
 
   var persistenceAcks = Map.empty[Long, (ActorRef, Persist)] //id -> (requester, persist)
+
+  case class GlobalAck(
+                        key: String,
+                        id: Long,
+                        pendingReplicators: Set[ActorRef] = Set(),
+                        requester: ActorRef,
+                        persistenceAcked: Boolean = false
+                       ) {
+     val acked : Boolean = persistenceAcked && pendingReplicators.isEmpty
+  }
+
+  object GlobalAck {
+    var pending = Map.empty[(String, Long), GlobalAck] //(key,id) -> ack
+
+    def ackPersistence(key: String, id: Long) {
+      pending.get(key,id).foreach { ack =>
+        checkDone(ack.copy(persistenceAcked = true))
+      }
+    }
+
+    def ackReplication(key: String, id: Long, replicator: ActorRef) {
+      pending.get(key, id).foreach { ack =>
+        checkDone(ack.copy(pendingReplicators = ack.pendingReplicators - replicator))
+      }
+    }
+
+    private def checkDone(ack: GlobalAck) {
+      if (ack.acked) {
+        ack.requester ! OperationAck(ack.id)
+        pending -= Pair(ack.key, ack.id)
+      } else {
+        pending += Pair(ack.key, ack.id) -> ack
+      }
+    }
+
+    def checkFail(key: String, id: Long) {
+      pending.get((key, id)).foreach { ack =>
+        ack.requester ! OperationFailed(id)
+        pending -= Pair(key, id)
+      }
+    }
+
+    def registerPersistence(key: String, id: Long, requester: ActorRef) {
+      pending += Pair(key,id) -> get(key, id, requester).copy(persistenceAcked = true)
+    }
+
+    def registerReplication(key: String, id: Long, replicator: ActorRef, requester: ActorRef) {
+      val existing = get(key, id, requester)
+      pending += Pair(key, id) -> existing.copy(pendingReplicators = existing.pendingReplicators + replicator)
+    }
+
+    def get(key: String, id: Long, requester: ActorRef): GlobalAck = {
+      pending.getOrElse((key,id), GlobalAck(key = key, id = id, requester = requester))
+    }
+
+    def removeReplicator(toRemove: ActorRef) {
+      pending.values.foreach { ack =>
+        checkDone(ack.copy(pendingReplicators = ack.pendingReplicators - toRemove))
+      }
+    }
+  }
+
 
   def receive = {
     case JoinedPrimary   => context.become(leader)
@@ -60,25 +121,48 @@ class Replica(val arbiter: ActorRef, persistenceProps: Props) extends Actor {
   val leader: Receive = {
     case Insert(key, value, id) => {
       kv += key -> value
-      persist(key, Some(value), id)
+      replicate(key, Some(value), id)
     }
+
     case Remove(key, id) => {
       kv -= key
-      persist(key, None, id)
+      replicate(key, None, id)
     }
+
     case Get(key, id) => {
       sender ! GetResult(key, kv.get(key), id)
     }
 
     case Persisted(key, id) => {
-      persistenceAcks(id)._1 ! OperationAck(id)
-      persistenceAcks -= id
+      GlobalAck.ackPersistence(key, id)
     }
 
-    case CheckPersistent(id) => {
-      persistenceAcks.get(id).foreach {
-        case (requester, p) => requester ! OperationFailed(id)
+    case Replicated(key, id) => {
+      GlobalAck.ackReplication(key, id, sender)
+    }
+
+    case CheckAck(key, id) => {
+      GlobalAck.checkFail(key, id)
+    }
+
+
+    case Replicas(replicas) => {
+      val added = replicas -- secondaries.keySet - self
+      val removed = secondaries.keySet -- replicas
+      removed.foreach { r =>
+        GlobalAck.removeReplicator(secondaries(r))
+        context stop secondaries(r)
+        secondaries -= r
       }
+
+      added.foreach { a =>
+        val replicator = context.actorOf(Replicator.props(a))
+        secondaries += a -> replicator
+        kv.foreach {
+          case (k, v) => replicator ! Replicate(k, Some(v), secondaries.size)
+        }
+      }
+
     }
   }
 
@@ -104,11 +188,21 @@ class Replica(val arbiter: ActorRef, persistenceProps: Props) extends Actor {
 
   }
 
+
+  def replicate(key: String, valueOption: Option[String], id: Long) {
+    secondaries.values.foreach { replicator =>
+      GlobalAck.registerReplication(key, id, replicator, sender)
+      replicator ! Replicate(key, valueOption, id)
+    }
+    GlobalAck.registerPersistence(key, id, sender)
+    persist(key, valueOption, id)
+    context.system.scheduler.scheduleOnce(1 second, self, CheckAck(key, id))
+  }
+
   def persist( key: String, valueOption: Option[String], id: Long) {
     val p = Persist(key, valueOption, id)
     persistenceAcks += id -> (sender, p)
     persistent ! p
-    context.system.scheduler.scheduleOnce(1 second, self, CheckPersistent(id))
   }
 
   def update(key: String, valueOption: Option[String]) {
